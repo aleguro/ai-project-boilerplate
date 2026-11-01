@@ -1,0 +1,48 @@
+{
+  "_description": "Baseline metrics — updated after each shipped feature. Used to track trends across sessions.",
+  "updated_at": "YYYY-MM-DD",
+  "sessions": [],
+  "thresholds": {
+    "ai_blob_score_max": 20,
+    "spec_drift_max_pct": 10,
+    "min_graphify_calls_per_feature": 2,
+    "min_test_coverage_pct": {
+      "rails": 80,
+      "react": 75,
+      "python": 80
+    }
+  },
+  "pricing_usd_per_1m_tokens": {
+    "_note": "Update when Anthropic changes rates",
+    "opus":   { "input": 15.00, "output": 75.00 },
+    "sonnet": { "input":  3.00, "output": 15.00 },
+    "haiku":  { "input":  0.25, "output":  1.25 }
+  },
+  "schema": {
+    "session": {
+      "branch": "string",
+      "generated_at": "ISO8601",
+      "graphify_calls": "int — number of graphify queries in the session",
+      "brain_docs_read": "int — number of Obsidian notes read",
+      "file_reads": "int — total Read tool calls",
+      "file_writes": "int — total Edit/Write tool calls",
+      "test_runs": "int — number of test suite executions",
+      "tasks_completed": "int — spec tasks that reached green",
+      "tasks_total": "int — total spec tasks planned",
+      "ai_blob_score": "int — functions > 40 lines without test coverage",
+      "spec_drift": "string — description of out-of-scope changes",
+      "cost": {
+        "total_usd": "float — total session cost in USD",
+        "by_model": {
+          "<model>": {
+            "input_tokens": "int",
+            "output_tokens": "int",
+            "cost_usd": "float"
+          }
+        },
+        "note": "Log with: scripts/metric-logger.sh cost <opus|sonnet|haiku> <input_tokens> <output_tokens>"
+      },
+      "alerts": "string[] — threshold violations (includes cost > $5 alert)"
+    }
+  }
+}
