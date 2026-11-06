@@ -26,7 +26,7 @@ GitHub template for new projects with the full Claude Code AI-first development 
 |----------|------|
 | **Skills** | `spec-driven-development`, `tdd-loop`, `e2e`, `churn`, `code-review`, `graphify`, `obsidian-integration` |
 | **Agents** | `playwright-test-planner`, `playwright-test-generator`, `playwright-test-healer` |
-| **Scripts** | `bootstrap`, `metric-logger`, `push-pr`, `push-pr-stack`, `create-pr`, `pr-trigger`, `graphify-update`, `token-estimator` |
+| **Scripts** | `bootstrap`, `metric-logger`, `push-pr`, `push-pr-stack`, `create-pr`, `graphify-update`, `token-estimator` |
 | **Brain vault** | Obsidian-compatible KB at `brain/` with 8 folders |
 | **Hooks** | PostToolUse metric logging, token estimation |
 | **Docs** | E2E harness guide, design mockup folders, metrics baseline |

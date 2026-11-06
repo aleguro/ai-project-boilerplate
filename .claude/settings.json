@@ -24,16 +24,6 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "scripts/pr-trigger.sh",
-            "timeout": 60
-          }
-        ]
-      },
-      {
         "matcher": ".*",
         "hooks": [
           {

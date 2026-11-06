@@ -44,6 +44,7 @@ status: draft
 type: feature
 spec: docs/superpowers/specs/YYYY-MM-DD-<feature>.md
 branch: feature/<name>
+layers_committed: []
 ---
 
 # <Feature Name>
@@ -74,6 +75,8 @@ _Wikilinks to [[Architecture/]], [[Codebase/]], [[Database/]] notes this feature
 ```
 
 After creating the ticket, update `brain/Features/index.md` to add a wikilink to it.
+
+`layers_committed:` tracks which of the `driver` skill's 5 layers (spec/api/app/qa/stats) already has its one commit landed — it's how a resumed session tells "task ticked" apart from "layer actually committed" after a session cuts mid-feature. Only the `driver` skill writes to it; ignore it when running a layer's skill standalone.
 
 ### 1b — Write the Spec
 

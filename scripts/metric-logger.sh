@@ -21,96 +21,85 @@ BRANCH="${BRANCH:-unknown}"
 METRICS_FILE="/tmp/claude-metrics-${BRANCH}.jsonl"
 TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-# ── Explicit mode ──────────────────────────────────────────────────────────────
-if [ "${1:-}" != "" ] && [ "${1:-}" != "{" ]; then
-  MODE="$1"
-  case "$MODE" in
-    graphify)
-      CALL="${2:-unknown}"
-      echo "{\"type\":\"graphify\",\"call\":\"${CALL}\",\"ts\":\"${TIMESTAMP}\"}" >> "$METRICS_FILE"
-      ;;
-    task)
-      TASK="${2:-unknown}"
-      STATUS="${3:-unknown}"
-      HUMAN_EST="${4:-}"
-      echo "{\"type\":\"task\",\"task\":\"${TASK}\",\"status\":\"${STATUS}\",\"human_estimate\":\"${HUMAN_EST}\",\"ts\":\"${TIMESTAMP}\"}" >> "$METRICS_FILE"
-      ;;
-    brain)
-      DOC="${2:-unknown}"
-      echo "{\"type\":\"brain_read\",\"doc\":\"${DOC}\",\"ts\":\"${TIMESTAMP}\"}" >> "$METRICS_FILE"
-      ;;
-    cost)
-      MODEL="${2:-unknown}"
-      INPUT_TOKENS="${3:-0}"
-      OUTPUT_TOKENS="${4:-0}"
-      echo "{\"type\":\"cost\",\"model\":\"${MODEL}\",\"input_tokens\":${INPUT_TOKENS},\"output_tokens\":${OUTPUT_TOKENS},\"ts\":\"${TIMESTAMP}\"}" >> "$METRICS_FILE"
-      ;;
-    report)
-      _report
-      ;;
-    feature-report)
-      FEATURE_NAME="${2:-${BRANCH}}"
-      _feature_report "$FEATURE_NAME"
-      ;;
-  esac
-  exit 0
-fi
-
-# ── Hook mode (stdin JSON from Claude PreToolUse) ──────────────────────────────
-INPUT="$(cat)"
-TOOL_NAME="$(echo "$INPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('tool_name',''))" 2>/dev/null || echo "")"
-TOOL_INPUT="$(echo "$INPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(json.dumps(d.get('tool_input',{})))" 2>/dev/null || echo "{}")"
-
-case "$TOOL_NAME" in
-  Read)
-    FILE_PATH="$(echo "$TOOL_INPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('file_path',''))" 2>/dev/null || echo "")"
-    if echo "$FILE_PATH" | grep -q "brain/"; then
-      echo "{\"type\":\"brain_read\",\"doc\":\"${FILE_PATH}\",\"ts\":\"${TIMESTAMP}\"}" >> "$METRICS_FILE"
-    else
-      echo "{\"type\":\"read\",\"file\":\"${FILE_PATH}\",\"ts\":\"${TIMESTAMP}\"}" >> "$METRICS_FILE"
-    fi
-    ;;
-  Edit|Write)
-    FILE_PATH="$(echo "$TOOL_INPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('file_path',''))" 2>/dev/null || echo "")"
-    echo "{\"type\":\"write\",\"file\":\"${FILE_PATH}\",\"ts\":\"${TIMESTAMP}\"}" >> "$METRICS_FILE"
-    ;;
-  Bash|Grep)
-    CMD="$(echo "$TOOL_INPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('command',''))" 2>/dev/null || echo "")"
-    if echo "$CMD" | grep -q "graphify"; then
-      GCMD="$(echo "$CMD" | grep -oE 'graphify (query|explain|path|update) [^;]+' | head -1 || echo "graphify")"
-      echo "{\"type\":\"graphify\",\"call\":\"${GCMD}\",\"ts\":\"${TIMESTAMP}\"}" >> "$METRICS_FILE"
-    elif echo "$CMD" | grep -qE "brain/|obsidian"; then
-      echo "{\"type\":\"brain_read\",\"doc\":\"${CMD}\",\"ts\":\"${TIMESTAMP}\"}" >> "$METRICS_FILE"
-    elif echo "$CMD" | grep -qE "rspec|pytest|npm test|bundle exec rspec"; then
-      echo "{\"type\":\"test_run\",\"ts\":\"${TIMESTAMP}\"}" >> "$METRICS_FILE"
-    fi
-    ;;
-esac
-
-exit 0
+# Appends one JSON event line. Builds the object in Python so a value
+# containing a `"` (a path, a shell command) can't produce invalid JSON
+# that _report()/_feature_report() would then silently drop.
+# Usage: _emit <type> [key=value ...]
+_emit() {
+  local type="$1"; shift
+  python3 -c "
+import json, sys
+d = {'type': sys.argv[1], 'ts': sys.argv[2]}
+for kv in sys.argv[3:]:
+    k, v = kv.split('=', 1)
+    d[k] = int(v) if v.lstrip('-').isdigit() else v
+print(json.dumps(d))
+" "$type" "$TIMESTAMP" "$@" >> "$METRICS_FILE"
+}
 
 # ── Report function ────────────────────────────────────────────────────────────
+# Defined before it's called below — a bash function must be defined before
+# the line that invokes it runs, and the old layout (defined after `exit 0`)
+# meant this line was never reached: `report`/`feature-report` always failed
+# with "command not found".
 _report() {
   OUT_FILE="${REPO_ROOT}/docs/metrics/session-$(date +%Y-%m-%d)-${BRANCH}.json"
 
-  GRAPHIFY_CALLS=$(grep '"type":"graphify"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ')
-  BRAIN_READS=$(grep '"type":"brain_read"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ')
-  FILE_READS=$(grep '"type":"read"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ')
-  FILE_WRITES=$(grep '"type":"write"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ')
-  TEST_RUNS=$(grep '"type":"test_run"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ')
-  TASKS_GREEN=$(grep '"type":"task".*"status":"green"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ')
-  TASKS_TOTAL=$(grep '"type":"task"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ')
+  # `|| true` on each: under `set -o pipefail`, grep finding zero matches
+  # (the common case — e.g. no graphify calls yet) makes the whole pipeline
+  # exit non-zero, which `set -e` treats as a failed assignment and aborts
+  # the script right here, silently, with no output at all.
+  GRAPHIFY_CALLS=$(grep '"type":"graphify"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ' || true)
+  BRAIN_READS=$(grep '"type":"brain_read"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ' || true)
+  FILE_READS=$(grep '"type":"read"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ' || true)
+  FILE_WRITES=$(grep '"type":"write"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ' || true)
+  TEST_RUNS=$(grep '"type":"test_run"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ' || true)
+  TASKS_GREEN=$(grep '"type":"task".*"status":"green"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ' || true)
+  TASKS_TOTAL=$(grep '"type":"task"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ' || true)
 
-  # AI blob score: functions/methods > 40 lines in changed files
+  # AI blob score: functions/methods > 40 lines in changed files.
+  # Python has no closing keyword — a function ends when a line drops back
+  # to its own indentation or less, so it's counted by indentation, not by
+  # matching `end`/`}` (which never appears in .py files and under-counts
+  # them to zero). JS/TS/Ruby still match a closer, but `};` (the common
+  # Prettier/ESLint style) needs to count too, not just a lone `}`.
   AI_BLOB_SCORE=0
   CHANGED_FILES=$(git -C "$REPO_ROOT" diff --name-only HEAD 2>/dev/null || echo "")
   if [ -n "$CHANGED_FILES" ]; then
-    LONG_FUNCS=$(echo "$CHANGED_FILES" | xargs -I{} awk '
-      /def |function |const .* =>/ { start=NR; name=$0 }
-      /^end$|^}$/ { if (NR - start > 40) count++ }
-      END { print count+0 }
-    ' "${REPO_ROOT}/{}" 2>/dev/null | awk '{s+=$1} END{print s+0}')
-    AI_BLOB_SCORE=$LONG_FUNCS
+    AI_BLOB_SCORE=$(cd "$REPO_ROOT" && echo "$CHANGED_FILES" | python3 -c "
+import re, sys
+
+count = 0
+for path in sys.stdin.read().splitlines():
+    try:
+        lines = open(path).readlines()
+    except OSError:
+        continue
+
+    if path.endswith('.py'):
+        i = 0
+        while i < len(lines):
+            m = re.match(r'^(\s*)def\s', lines[i])
+            if not m:
+                i += 1
+                continue
+            indent, start = len(m.group(1)), i
+            i += 1
+            while i < len(lines) and (not lines[i].strip() or len(lines[i]) - len(lines[i].lstrip()) > indent):
+                i += 1
+            if i - start > 40:
+                count += 1
+    else:
+        start = None
+        for j, line in enumerate(lines):
+            if re.search(r'\bdef \b|\bfunction\b|const .*=>', line):
+                start = j
+            elif start is not None and re.match(r'^\s*(end|};?)\s*$', line):
+                if j - start > 40:
+                    count += 1
+                start = None
+print(count)
+" 2>/dev/null || echo 0)
   fi
 
   # Spec drift: files edited outside spec scope (heuristic)
@@ -200,6 +189,8 @@ report = {
 }
 if report["ai_blob_score"] > report["thresholds"]["ai_blob_score_max"]:
     report["alerts"].append("ai_blob_score too high — review long functions")
+if report["spec_drift"] not in ("unknown",):
+    report["alerts"].append(f"spec_drift: {report['spec_drift']}")
 if report["graphify_calls"] < report["thresholds"]["min_graphify_calls"]:
     report["alerts"].append("low graphify usage — did you query the graph before coding?")
 if total_cost > 5.0:
@@ -208,10 +199,6 @@ print(json.dumps(report, indent=2))
 PYEOF
 
   echo "→ Report saved to ${OUT_FILE}"
-  python3 -c "
-import json, sys
-r = json.load(sys.stdin) if False else None
-" 2>/dev/null || true
 }
 
 # ── Feature report: per-feature AI vs human comparison ────────────────────────
@@ -349,3 +336,63 @@ print(json.dumps(report, indent=2))
 print(f"\n→ Feature report saved to {out_file}")
 PYEOF
 }
+
+# ── Explicit mode ──────────────────────────────────────────────────────────────
+if [ "${1:-}" != "" ] && [ "${1:-}" != "{" ]; then
+  MODE="$1"
+  case "$MODE" in
+    graphify)
+      _emit graphify "call=${2:-unknown}"
+      ;;
+    task)
+      _emit task "task=${2:-unknown}" "status=${3:-unknown}" "human_estimate=${4:-}"
+      ;;
+    brain)
+      _emit brain_read "doc=${2:-unknown}"
+      ;;
+    cost)
+      _emit cost "model=${2:-unknown}" "input_tokens=${3:-0}" "output_tokens=${4:-0}"
+      ;;
+    report)
+      _report
+      ;;
+    feature-report)
+      FEATURE_NAME="${2:-${BRANCH}}"
+      _feature_report "$FEATURE_NAME"
+      ;;
+  esac
+  exit 0
+fi
+
+# ── Hook mode (stdin JSON from Claude PreToolUse) ──────────────────────────────
+INPUT="$(cat)"
+TOOL_NAME="$(echo "$INPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('tool_name',''))" 2>/dev/null || echo "")"
+TOOL_INPUT="$(echo "$INPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(json.dumps(d.get('tool_input',{})))" 2>/dev/null || echo "{}")"
+
+case "$TOOL_NAME" in
+  Read)
+    FILE_PATH="$(echo "$TOOL_INPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('file_path',''))" 2>/dev/null || echo "")"
+    if echo "$FILE_PATH" | grep -q "brain/"; then
+      _emit brain_read "doc=${FILE_PATH}"
+    else
+      _emit read "file=${FILE_PATH}"
+    fi
+    ;;
+  Edit|Write)
+    FILE_PATH="$(echo "$TOOL_INPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('file_path',''))" 2>/dev/null || echo "")"
+    _emit write "file=${FILE_PATH}"
+    ;;
+  Bash|Grep)
+    CMD="$(echo "$TOOL_INPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('command',''))" 2>/dev/null || echo "")"
+    if echo "$CMD" | grep -q "graphify"; then
+      GCMD="$(echo "$CMD" | grep -oE 'graphify (query|explain|path|update) [^;]+' | head -1 || echo "graphify")"
+      _emit graphify "call=${GCMD}"
+    elif echo "$CMD" | grep -qE "brain/|obsidian"; then
+      _emit brain_read "doc=${CMD}"
+    elif echo "$CMD" | grep -qE "rspec|pytest|npm test|bundle exec rspec"; then
+      _emit test_run
+    fi
+    ;;
+esac
+
+exit 0

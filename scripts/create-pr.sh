@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # create-pr.sh — generates a metrics-enriched PR via gh pr create
-# Called by pr-trigger.sh after a branch push.
+# Called by push-pr.sh (the `git push-pr` alias) after a branch push.
 
 set -euo pipefail
 
@@ -51,8 +51,7 @@ else
 fi
 
 # ── Spec drift ─────────────────────────────────────────────────────────────────
-PLAN_FILES=$(grep -rh "^\- \`" "${REPO_ROOT}"/*/docs/superpowers/plans/ \
-  "${REPO_ROOT}"/docs/superpowers/plans/ 2>/dev/null \
+PLAN_FILES=$(grep -rh "^\- \`" "${REPO_ROOT}/docs/superpowers/plans/" 2>/dev/null \
   | grep "/" | sed "s/.*\`\(.*\)\`.*/\1/" | sort -u || echo "")
 
 TOUCHED_FILES=$(git diff --name-only "origin/main...HEAD" 2>/dev/null | sort -u || echo "")

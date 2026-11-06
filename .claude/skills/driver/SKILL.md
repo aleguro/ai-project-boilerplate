@@ -36,7 +36,7 @@ A feature with no UI skips layer 3. A feature with no new contract (pure UI, pur
 
 ### 0. Resume check
 
-Before doing anything: does `brain/Features/<feature>.md` already exist? If yes, read it — `status:` and the ticked tasks tell you which layer to resume from. Don't restart a finished layer.
+Before doing anything: does `brain/Features/<feature>.md` already exist? If yes, read its `layers_committed:` frontmatter field — a list like `[spec, api]` — and resume from the next layer that isn't in it. Ticked tasks alone aren't enough to tell: a task can be green while the one commit for its layer never landed (session cut mid-step), so `layers_committed` is the one source of truth for "is this layer actually done." Don't restart a layer already in that list.
 
 ### 1. Layer: spec
 
@@ -46,23 +46,18 @@ Before doing anything: does `brain/Features/<feature>.md` already exist? If yes,
    - `react` tasks, and any `rails` view-only tasks → **app**
 3. Commit: `spec(<feature>): <one-line summary>`
 4. **Gate:** none yet — this is the baseline. Run `scripts/metric-logger.sh report` once now anyway so there's a zero-point to diff against later.
+5. Add `spec` to `layers_committed:` in `brain/Features/<feature>.md`.
 
 ### 2. Layer: api (skip if no backend-contract tasks)
 
 1. Apply the parallelization check from `spec-driven-development` (Step 4) **within this layer only**: 2+ api tasks on different stacks → parallel agents in worktrees; same stack or dependent → sequential, same session.
 2. For each task: load the matching `stacks/<stack>` skill, run `tdd-loop`, land on green.
 3. Do **not** commit per task here — that's `tdd-loop`'s own concern when run standalone. Under the driver, let all api tasks land, then make **one** commit for the layer: `feat(<feature>): api — <tasks summary>`.
-4. **Gate before moving to app:**
-   ```bash
-   scripts/metric-logger.sh report
-   ```
-   Read the printed `alerts`:
-   - `ai_blob_score too high` → stop. Run `/ponytail-review` on this layer's diff (ponytail is installed project-wide — `.claude/settings.json`) as the refactor pass, then re-run the report until clear.
-   - Any file changed outside this layer's task scope → `spec_drift`. Stop, ask the user: amend the spec to cover it, or revert the out-of-scope change. Never let it pass silently into the commit.
+4. **Gate before moving to app** — run the check in "Gates, summarized" below. On pass, add `api` to `layers_committed:`.
 
 ### 3. Layer: app (skip if no UI/consumer tasks)
 
-Same mechanics as **api**: parallelize across stacks if independent, run `tdd-loop` per task, one commit for the layer (`feat(<feature>): app — <tasks summary>`), same gate (`ai_blob_score`, `spec_drift`) before advancing.
+Same mechanics as **api**: parallelize across stacks if independent, run `tdd-loop` per task, one commit for the layer (`feat(<feature>): app — <tasks summary>`), same gate below before advancing. On pass, add `app` to `layers_committed:`.
 
 If the spec touches UI and no mockup exists yet, run `spec-driven-development` Step 3 (mockup) first and fold its commit into this layer.
 
@@ -71,11 +66,12 @@ If the spec touches UI and no mockup exists yet, run `spec-driven-development` S
 1. Load `e2e`. Run the three-agent pipeline (planner → generator → healer) against the use cases from the spec.
 2. Commit: `test(<feature>): e2e — <scenarios covered>`
 3. **Gate:** all specs green. A red spec after the healer's pass means stop and surface it — the driver does not paper over a failing test by narrowing scope.
+4. Add `qa` to `layers_committed:`.
 
 ### 5. Layer: stats
 
 1. Run the `/save` sequence: `scripts/metric-logger.sh report`, then `make churn-report FEATURE=<feature>` if the feature is shipping.
-2. Load `obsidian-integration` and update `brain/Features/<feature>.md` (status → `shipped`, tick tasks, wikilinks) plus any domain folder the feature touched (`Architecture/`, `Codebase/`, `Database/`, `APIs/`, `Decisions/`).
+2. Load `obsidian-integration` and update `brain/Features/<feature>.md` (status → `shipped`, tick tasks, wikilinks, `layers_committed:` → add `stats`) plus any domain folder the feature touched (`Architecture/`, `Codebase/`, `Database/`, `APIs/`, `Decisions/`).
 3. Commit: `chore(<feature>): stats — metrics + brain update`
 4. Run `make pr-stack` — one PR per stack that changed, each PR body auto-includes the metrics table from step 1.
 
@@ -83,15 +79,15 @@ If the spec touches UI and no mockup exists yet, run `spec-driven-development` S
 
 ## Gates, summarized
 
-Between **every** api/app layer transition, and once more before stats:
+Before moving from **api** to **app**, from **app** to **qa**, and once more before **stats**:
 
 ```bash
 scripts/metric-logger.sh report
 ```
 
 Stop and resolve before continuing if the report's `alerts` contains:
-- `ai_blob_score too high` (threshold: 20) — refactor, don't ship it hoping review catches it
-- a file outside the current layer's declared task scope — this is `spec_drift` (threshold: 10%); the metric file leaves this as `"check manually"`, so the driver's job is to actually do that comparison against the spec's `Stages and Tasks` section before committing, not skip it because the field says "manually"
+- `ai_blob_score too high` (threshold: 20) — run `/ponytail-review` on this layer's diff as the refactor pass (ponytail is installed project-wide, `.claude/settings.json`), then re-run the report until clear. Refactor, don't ship it hoping review catches it later.
+- `spec_drift: check manually — ...` — the script only tells you a spec file exists and files changed; it does not know the task scope. Actually do the comparison: read the spec's `Stages and Tasks` section for the layer you're closing and check every changed file lands on one of its tasks. If one doesn't, stop — amend the spec to cover it, or revert the out-of-scope change. Never let it pass silently into the commit because the alert didn't name the file for you.
 
 These are the same two thresholds already in `CLAUDE.md`'s Rules section — the driver is what actually enforces them mid-flight instead of at review time.
 
