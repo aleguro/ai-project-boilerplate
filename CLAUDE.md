@@ -38,6 +38,7 @@ docs/
 
 | Skill | When to load |
 |-------|--------------|
+| `driver` | `/ship-feature` — orchestrates spec→api→app→qa→stats end-to-end for a whole feature. Default entrypoint; load the layers below individually only for a one-off fix |
 | `graphify` | Before any question about the codebase |
 | `spec-driven-development` | When starting any feature |
 | `tdd-loop` | During implementation of each spec task |
@@ -179,12 +180,15 @@ Wait for all agents to complete before starting Stage 2.
 ## Standard workflow
 
 ```
-1. Write spec    → spec-driven-development (Feature ticket + actors, UCs, stages, tasks)
-2. Implement     → tdd-loop per task; graphify auto-updates on every commit
-3. E2E coverage  → playwright-test-planner → playwright-test-generator
-4. /save         → brain update + metrics auto-generated → brain/Metrics/
-5. PR            → make pr-stack
+/ship-feature → driver skill, coordinates all 5 layers below:
+1. spec    → spec-driven-development (Feature ticket + actors, UCs, stages, tasks)
+2. api     → tdd-loop per backend-contract task
+3. app     → tdd-loop per UI/consumer task
+4. qa      → playwright-test-planner → playwright-test-generator → playwright-test-healer
+5. stats   → /save (brain update + metrics) → make pr-stack
 ```
+
+Each layer ends in exactly one commit, gated on `ai_blob_score` / `spec_drift` (see `.claude/skills/driver/SKILL.md`) before the driver advances to the next layer. The layers can still be run by hand one at a time — the driver is the default, not the only path.
 
 **What's automatic (no manual steps):**
 - graphify updates after every `git commit` (post-commit hook)

@@ -108,14 +108,48 @@ In `.claude/settings.json`, add the MCP server so the E2E agents have browser ac
 
 ## Standard workflow
 
+Say `/ship-feature` and the `driver` skill runs all five layers below, gating between each one on `ai_blob_score` / `spec_drift` and leaving one clean commit per layer:
+
 ```
-1. Spec       → spec-driven-development  (creates Feature ticket + spec doc)
-2. Mockup     → frontend-design          (if the feature touches UI)
-3. Implement  → tdd-loop                 (red → green → commit, repeat)
-4. E2E        → e2e agents               (plan → generate → heal if red)
-5. Save       → /save                    (updates brain + generates metrics automatically)
-6. PR         → make pr-stack            (one PR per changed stack)
+1. spec   → spec-driven-development  (creates Feature ticket + spec doc)
+2. api    → tdd-loop                 (backend-contract tasks: endpoints, schemas, jobs)
+3. app    → tdd-loop                 (UI/consumer tasks; mockup via frontend-design first if needed)
+4. qa     → e2e agents               (plan → generate → heal if red)
+5. stats  → /save + make pr-stack    (brain + metrics, then one PR per changed stack)
 ```
+
+Each layer can still be run on its own by loading its skill directly — the driver is the default path for shipping a whole feature, not the only one.
+
+### Full flow, visually
+
+```mermaid
+flowchart TD
+    Start(["/ship-feature"]) --> Spec["1 · spec<br/>spec-driven-development<br/>ticket + spec + graphify context"]
+    Spec -->|"commit: spec(feature): ..."| HasAPI{"backend-contract<br/>tasks?"}
+
+    HasAPI -->|yes| API["2 · api<br/>tdd-loop + stacks/rails|python"]
+    HasAPI -->|no| HasAPP{"UI/consumer<br/>tasks?"}
+
+    API -->|"commit: feat(feature): api —"| GateAPI{"ai_blob_score / spec_drift<br/>clean?"}
+    GateAPI -->|no| PonytailAPI["/ponytail-review<br/>refactor"] --> API
+    GateAPI -->|yes| HasAPP
+
+    HasAPP -->|yes| APP["3 · app<br/>tdd-loop + stacks/react<br/>(+ frontend-design mockup if new UI)"]
+    HasAPP -->|no| QA
+
+    APP -->|"commit: feat(feature): app —"| GateAPP{"ai_blob_score / spec_drift<br/>clean?"}
+    GateAPP -->|no| PonytailAPP["/ponytail-review<br/>refactor"] --> APP
+    GateAPP -->|yes| QA["4 · qa<br/>e2e: planner → generator → healer"]
+
+    QA -->|"commit: test(feature): e2e —"| GateQA{"all specs<br/>green?"}
+    GateQA -->|no| Heal["healer fixes red specs"] --> QA
+    GateQA -->|yes| Stats["5 · stats<br/>metric-logger report + churn-report<br/>+ obsidian-integration brain update"]
+
+    Stats -->|"commit: chore(feature): stats —"| PR["make pr-stack"]
+    PR --> Done(["PR(s) open — one per changed stack"])
+```
+
+Two gates repeat (api, app): same `ai_blob_score`/`spec_drift` check, same `/ponytail-review` escape hatch. The qa gate is different — a red spec sends it to the healer, not to ponytail.
 
 **What happens automatically — no manual steps needed:**
 
@@ -146,6 +180,22 @@ Claude reads `brain/Features/<feature>.md` to recover context — status, comple
 ## Skills reference
 
 Skills are markdown files in `.claude/skills/`. Claude loads them on demand with the `Skill` tool. They modify Claude's behavior for that task.
+
+### `driver`
+
+**Trigger:** `/ship-feature` — say this to ship a whole feature end-to-end.
+
+The orchestrator. Coordinates the other skills through 5 layers — spec, api, app, qa, stats — instead of you chaining them by hand. Groups the spec's tasks by layer from their `Stack:` tag, runs each layer's skill, and between layers runs:
+
+```bash
+scripts/metric-logger.sh report
+```
+
+If the report flags `ai_blob_score` over 20 or a file outside the layer's declared scope (`spec_drift`), the driver stops there — refactor or amend the spec before it lets the next layer start. Each layer ends in exactly one commit (`spec(...)`, `feat(...): api —`, `feat(...): app —`, `test(...): e2e —`, `chore(...): stats —`), then `make pr-stack` opens the PR(s).
+
+Full mechanics (resuming a feature mid-flight, parallelization within a layer, skipping layers that don't apply) in `.claude/skills/driver/SKILL.md`.
+
+---
 
 ### `spec-driven-development`
 
