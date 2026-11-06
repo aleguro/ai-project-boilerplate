@@ -1,0 +1,116 @@
+direction: down
+
+start: "/ship-feature" {
+  shape: oval
+  style.fill: "#1a7f37"
+  style.font-color: white
+}
+
+spec: "① spec\nspec-driven-development" {
+  style.fill: "#1f6feb"
+  style.font-color: white
+}
+
+api_q: "api tasks?" {
+  shape: diamond
+  style.fill: "#57606a"
+  style.font-color: white
+}
+
+api: "② api\ntdd-loop · stacks/rails|python" {
+  style.fill: "#1f6feb"
+  style.font-color: white
+}
+
+gate_api: "blob score /\nspec drift clean?" {
+  shape: diamond
+  style.fill: "#9a6700"
+  style.font-color: white
+}
+
+ponytail_api: "/ponytail-review" {
+  style.fill: "#cf222e"
+  style.font-color: white
+}
+
+app_q: "app tasks?" {
+  shape: diamond
+  style.fill: "#57606a"
+  style.font-color: white
+}
+
+app: "③ app\ntdd-loop · stacks/react" {
+  style.fill: "#1f6feb"
+  style.font-color: white
+}
+
+gate_app: "blob score /\nspec drift clean?" {
+  shape: diamond
+  style.fill: "#9a6700"
+  style.font-color: white
+}
+
+ponytail_app: "/ponytail-review" {
+  style.fill: "#cf222e"
+  style.font-color: white
+}
+
+qa: "④ qa\nplanner → generator → healer" {
+  style.fill: "#1f6feb"
+  style.font-color: white
+}
+
+gate_qa: "all specs\ngreen?" {
+  shape: diamond
+  style.fill: "#9a6700"
+  style.font-color: white
+}
+
+heal: "healer fixes\nred specs" {
+  style.fill: "#cf222e"
+  style.font-color: white
+}
+
+stats: "⑤ stats\nmetrics + brain update" {
+  style.fill: "#1f6feb"
+  style.font-color: white
+}
+
+push: "git push-pr" {
+  shape: oval
+  style.fill: "#1a7f37"
+  style.font-color: white
+}
+
+done: "PR open" {
+  shape: oval
+  style.fill: "#1a7f37"
+  style.font-color: white
+}
+
+start -> spec
+spec -> api_q: commit spec(...)
+
+api_q -> api: yes
+api_q -> app_q: no
+
+api -> gate_api: commit feat: api
+gate_api -> ponytail_api: no
+ponytail_api -> api
+gate_api -> app_q: yes
+
+app_q -> app: yes
+app_q -> qa: no
+
+app -> gate_app: commit feat: app
+gate_app -> ponytail_app: no
+ponytail_app -> app
+gate_app -> qa: yes
+
+qa -> gate_qa: commit test: e2e
+gate_qa -> heal: no
+heal -> qa
+gate_qa -> stats: yes
+
+stats -> push: commit chore: stats
+push -> done

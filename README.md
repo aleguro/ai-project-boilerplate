@@ -1,5 +1,7 @@
 # AI Project Boilerplate
 
+**Spec to shipped PR, one gated commit per layer — driven by Claude Code, not chained by hand.**
+
 GitHub template for new projects with the full Claude Code AI-first development workflow: skills, agents, hooks, scripts, brain vault, and docs structure.
 
 ---
@@ -30,7 +32,7 @@ GitHub template for new projects with the full Claude Code AI-first development 
 | **Plugins** | `ponytail` — refactor pass the driver calls when a function gets too long |
 | **Brain vault** | Obsidian-compatible KB at `brain/` with 8 folders |
 | **Hooks** | PreToolUse metric logging, PostToolUse token estimation |
-| **Docs** | E2E harness guide, design mockup folders, metrics baseline |
+| **Docs** | E2E harness guide, design mockup folders, metrics baseline, D2 diagram sources |
 
 ---
 
@@ -44,6 +46,7 @@ GitHub template for new projects with the full Claude Code AI-first development 
 | Node.js | Playwright MCP server | `brew install node` |
 | graphify-cli | Codebase knowledge graph | `pip install graphify-cli` |
 | @playwright/mcp | Browser agents | `npm install -g @playwright/mcp` |
+| [d2](https://d2lang.com) | Optional — only to regenerate `docs/diagrams/*.svg` | `brew install d2` |
 
 ---
 
@@ -123,34 +126,11 @@ Each layer can still be run on its own by loading its skill directly — the dri
 
 ### Full flow, visually
 
-```mermaid
-flowchart TD
-    Start(["/ship-feature"]) --> Spec["1 · spec<br/>spec-driven-development<br/>ticket + spec + graphify context"]
-    Spec -->|"commit: spec(feature): ..."| HasAPI{"backend-contract<br/>tasks?"}
+<img src="docs/diagrams/driver-flow.svg" alt="driver flow: spec, api, app, qa, stats layers with ai_blob_score/spec_drift gates" width="520">
 
-    HasAPI -->|yes| API["2 · api<br/>tdd-loop + stacks/rails|python"]
-    HasAPI -->|no| HasAPP{"UI/consumer<br/>tasks?"}
+🔵 layer (runs a skill) · 🟠 gate (`ai_blob_score`/`spec_drift` check) · 🔴 refactor loop · 🟢 start/end. The api and app gates are identical — same thresholds, same `/ponytail-review` escape hatch. The qa gate differs: a red spec goes to the healer, not to ponytail.
 
-    API -->|"commit: feat(feature): api —"| GateAPI{"ai_blob_score / spec_drift<br/>clean?"}
-    GateAPI -->|no| PonytailAPI["/ponytail-review<br/>refactor"] --> API
-    GateAPI -->|yes| HasAPP
-
-    HasAPP -->|yes| APP["3 · app<br/>tdd-loop + stacks/react<br/>(+ frontend-design mockup if new UI)"]
-    HasAPP -->|no| QA
-
-    APP -->|"commit: feat(feature): app —"| GateAPP{"ai_blob_score / spec_drift<br/>clean?"}
-    GateAPP -->|no| PonytailAPP["/ponytail-review<br/>refactor"] --> APP
-    GateAPP -->|yes| QA["4 · qa<br/>e2e: planner → generator → healer"]
-
-    QA -->|"commit: test(feature): e2e —"| GateQA{"all specs<br/>green?"}
-    GateQA -->|no| Heal["healer fixes red specs"] --> QA
-    GateQA -->|yes| Stats["5 · stats<br/>metric-logger report + churn-report<br/>+ obsidian-integration brain update"]
-
-    Stats -->|"commit: chore(feature): stats —"| PR["git push-pr"]
-    PR --> Done(["PR open, one for the branch"])
-```
-
-Two gates repeat (api, app): same `ai_blob_score`/`spec_drift` check, same `/ponytail-review` escape hatch. The qa gate is different — a red spec sends it to the healer, not to ponytail.
+Source: `docs/diagrams/driver-flow.d2`. Regenerate after changing it: `d2 docs/diagrams/driver-flow.d2 docs/diagrams/driver-flow.svg`.
 
 **What happens automatically — no manual steps needed:**
 
