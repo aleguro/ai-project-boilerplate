@@ -21,7 +21,7 @@ The model does not improvise: it writes no line of code that is not in the spec.
 3. UI? → mockup    (if the spec touches UI)
 4. TDD loop        (per task: red → green → commit → graphify auto-updates)
 5. Brain update    (/save — metrics generated automatically)
-6. PR per stack    (make pr-stack)
+6. PR             (git push-pr)
 ```
 
 Graphify updates itself automatically after every `git commit` (post-commit hook installed by bootstrap). Metrics are generated automatically by `/save`. **The user's only manual steps are: write estimates (`Human: Xh`), commit code, and say `/save`.**
@@ -303,14 +303,16 @@ Use skill `obsidian-integration` to read/write vault notes.
 
 ---
 
-## Step 7: PR per Stack
+## Step 7: PR
 
 ```bash
-scripts/push-pr-stack.sh
+git push-pr
 ```
 
-Creates one PR per stack that had changes. Each PR includes:
-- List of completed spec tasks
-- Session metrics
-- Link to spec
+Pushes the branch and opens one PR for the whole feature. The body includes:
+- Commit summary
+- Token consumption drift vs the session baseline
+- Graphify and brain (Obsidian) request counts
+- Spec drift — files touched outside the plan
+- Test coverage delta — new files without a matching test
 - Mockup screenshots (if any)

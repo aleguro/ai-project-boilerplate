@@ -1,4 +1,4 @@
-.PHONY: bootstrap graphify-init graphify-update metrics-report churn-report pr-stack
+.PHONY: bootstrap graphify-init graphify-update metrics-report churn-report
 
 # ── Bootstrap ──────────────────────────────────────────────────────────────────
 # Usage: make bootstrap PROJECT=my-project-name
@@ -29,12 +29,3 @@ ifndef FEATURE
 	$(error FEATURE is required. Usage: make churn-report FEATURE=my-feature)
 endif
 	bash scripts/metric-logger.sh feature-report $(FEATURE)
-
-# ── PR per stack ──────────────────────────────────────────────────────────────
-# Push branch and create one PR per changed stack
-# Usage: make pr-stack          (base=main)
-#        make pr-stack BASE=staging
-pr-stack:
-	bash scripts/push-pr-stack.sh $(BASE)
-
-BASE ?= main

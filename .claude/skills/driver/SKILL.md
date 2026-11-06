@@ -1,6 +1,6 @@
 ---
 name: driver
-description: Top-level orchestrator for a whole feature. Coordinates spec → api → app → qa → stats end-to-end, invoking the right skill per layer, gating on ai_blob_score/spec_drift between layers, and leaving exactly one clean commit per layer in the feature branch. Use instead of chaining spec-driven-development → tdd-loop → e2e → /save → pr-stack by hand.
+description: Top-level orchestrator for a whole feature. Coordinates spec → api → app → qa → stats end-to-end, invoking the right skill per layer, gating on ai_blob_score/spec_drift between layers, and leaving exactly one clean commit per layer in the feature branch. Use instead of chaining spec-driven-development → tdd-loop → e2e → /save → git push-pr by hand.
 triggers:
   - /ship-feature
   - /driver
@@ -14,7 +14,7 @@ Each skill in this repo (`spec-driven-development`, `tdd-loop`, `e2e`, `churn`, 
 
 The driver is that missing coordinator. It owns the sequence, the gates between layers, and the commit boundaries. The underlying skills don't change — this wraps them.
 
-**One feature = one branch = 5 layers = 5 clean commits (minimum) = 1 PR (per stack, via `make pr-stack`).**
+**One feature = one branch = 5 layers = 5 clean commits (minimum) = 1 PR, via `git push-pr`.**
 
 ---
 
@@ -73,7 +73,7 @@ If the spec touches UI and no mockup exists yet, run `spec-driven-development` S
 1. Run the `/save` sequence: `scripts/metric-logger.sh report`, then `make churn-report FEATURE=<feature>` if the feature is shipping.
 2. Load `obsidian-integration` and update `brain/Features/<feature>.md` (status → `shipped`, tick tasks, wikilinks, `layers_committed:` → add `stats`) plus any domain folder the feature touched (`Architecture/`, `Codebase/`, `Database/`, `APIs/`, `Decisions/`).
 3. Commit: `chore(<feature>): stats — metrics + brain update`
-4. Run `make pr-stack` — one PR per stack that changed, each PR body auto-includes the metrics table from step 1.
+4. Run `git push-pr` — pushes the branch and opens the one PR for the feature, body auto-includes the metrics from step 1 (graphify calls, spec drift, test coverage, token drift).
 
 ---
 

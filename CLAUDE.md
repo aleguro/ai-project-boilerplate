@@ -115,15 +115,14 @@ make graphify-init                # initialize graphify (once per sub-project)
 make graphify-update              # update the graph after changes
 make metrics-report               # session metrics report
 make churn-report FEATURE=name    # per-feature AI vs human JSON
-make pr-stack                     # push + PRs per stack (base=main)
-make pr-stack BASE=staging        # same with another base branch
+git push-pr                       # push branch + open one PR with metrics in the body
 ```
 
 ---
 
 ## Rules
 
-- **NEVER `git push`** directly — use `make pr-stack` or `scripts/push-pr-stack.sh`
+- **NEVER `git push`** directly — use `git push-pr` (`scripts/push-pr.sh`)
 - No secrets in code — use `.env` (in `.gitignore`)
 - No features without a spec — use `spec-driven-development`
 - No code outside the spec's scope — `spec_drift > 10%` → stop and review
@@ -185,7 +184,7 @@ Wait for all agents to complete before starting Stage 2.
 2. api     → tdd-loop per backend-contract task
 3. app     → tdd-loop per UI/consumer task
 4. qa      → playwright-test-planner → playwright-test-generator → playwright-test-healer
-5. stats   → /save (brain update + metrics) → make pr-stack
+5. stats   → /save (brain update + metrics) → git push-pr
 ```
 
 Each layer ends in exactly one commit, gated on `ai_blob_score` / `spec_drift` (see `.claude/skills/driver/SKILL.md`) before the driver advances to the next layer. The layers can still be run by hand one at a time — the driver is the default, not the only path.

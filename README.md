@@ -26,7 +26,7 @@ GitHub template for new projects with the full Claude Code AI-first development 
 |----------|------|
 | **Skills** | `spec-driven-development`, `tdd-loop`, `e2e`, `churn`, `code-review`, `graphify`, `obsidian-integration` |
 | **Agents** | `playwright-test-planner`, `playwright-test-generator`, `playwright-test-healer` |
-| **Scripts** | `bootstrap`, `metric-logger`, `push-pr`, `push-pr-stack`, `create-pr`, `graphify-update`, `token-estimator` |
+| **Scripts** | `bootstrap`, `metric-logger`, `push-pr`, `create-pr`, `graphify-update`, `token-estimator` |
 | **Brain vault** | Obsidian-compatible KB at `brain/` with 8 folders |
 | **Hooks** | PostToolUse metric logging, token estimation |
 | **Docs** | E2E harness guide, design mockup folders, metrics baseline |
@@ -115,7 +115,7 @@ Say `/ship-feature` and the `driver` skill runs all five layers below, gating be
 2. api    → tdd-loop                 (backend-contract tasks: endpoints, schemas, jobs)
 3. app    → tdd-loop                 (UI/consumer tasks; mockup via frontend-design first if needed)
 4. qa     → e2e agents               (plan → generate → heal if red)
-5. stats  → /save + make pr-stack    (brain + metrics, then one PR per changed stack)
+5. stats  → /save + git push-pr      (brain + metrics, then one PR for the branch)
 ```
 
 Each layer can still be run on its own by loading its skill directly — the driver is the default path for shipping a whole feature, not the only one.
@@ -145,8 +145,8 @@ flowchart TD
     GateQA -->|no| Heal["healer fixes red specs"] --> QA
     GateQA -->|yes| Stats["5 · stats<br/>metric-logger report + churn-report<br/>+ obsidian-integration brain update"]
 
-    Stats -->|"commit: chore(feature): stats —"| PR["make pr-stack"]
-    PR --> Done(["PR(s) open — one per changed stack"])
+    Stats -->|"commit: chore(feature): stats —"| PR["git push-pr"]
+    PR --> Done(["PR open, one for the branch"])
 ```
 
 Two gates repeat (api, app): same `ai_blob_score`/`spec_drift` check, same `/ponytail-review` escape hatch. The qa gate is different — a red spec sends it to the healer, not to ponytail.
@@ -191,7 +191,7 @@ The orchestrator. Coordinates the other skills through 5 layers — spec, api, a
 scripts/metric-logger.sh report
 ```
 
-If the report flags `ai_blob_score` over 20 or a file outside the layer's declared scope (`spec_drift`), the driver stops there — refactor or amend the spec before it lets the next layer start. Each layer ends in exactly one commit (`spec(...)`, `feat(...): api —`, `feat(...): app —`, `test(...): e2e —`, `chore(...): stats —`), then `make pr-stack` opens the PR(s).
+If the report flags `ai_blob_score` over 20 or a file outside the layer's declared scope (`spec_drift`), the driver stops there — refactor or amend the spec before it lets the next layer start. Each layer ends in exactly one commit (`spec(...)`, `feat(...): api —`, `feat(...): app —`, `test(...): e2e —`, `chore(...): stats —`), then `git push-pr` opens the PR.
 
 Full mechanics (resuming a feature mid-flight, parallelization within a layer, skipping layers that don't apply) in `.claude/skills/driver/SKILL.md`.
 
@@ -564,8 +564,7 @@ make metrics-report                   # session metrics → docs/metrics/session
 make churn-report FEATURE=name        # AI vs human → docs/metrics/features/name.json
 
 # PR
-make pr-stack                         # push + create one PR per changed stack (base=main)
-make pr-stack BASE=staging            # same with a different base branch
+git push-pr                           # push branch + create one PR, metrics in the body
 
 # Metric logging (used by Claude and manually)
 scripts/metric-logger.sh task T1.1 green 4h          # log a completed task with human estimate
