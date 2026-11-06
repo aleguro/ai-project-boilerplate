@@ -24,11 +24,12 @@ GitHub template for new projects with the full Claude Code AI-first development 
 
 | Category | What |
 |----------|------|
-| **Skills** | `spec-driven-development`, `tdd-loop`, `e2e`, `churn`, `code-review`, `graphify`, `obsidian-integration` |
+| **Skills** | `driver` (orchestrator, `/ship-feature`), `spec-driven-development`, `tdd-loop`, `e2e`, `churn`, `code-review`, `graphify`, `obsidian-integration` |
 | **Agents** | `playwright-test-planner`, `playwright-test-generator`, `playwright-test-healer` |
 | **Scripts** | `bootstrap`, `metric-logger`, `push-pr`, `create-pr`, `graphify-update`, `token-estimator` |
+| **Plugins** | `ponytail` — refactor pass the driver calls when a function gets too long |
 | **Brain vault** | Obsidian-compatible KB at `brain/` with 8 folders |
-| **Hooks** | PostToolUse metric logging, token estimation |
+| **Hooks** | PreToolUse metric logging, PostToolUse token estimation |
 | **Docs** | E2E harness guide, design mockup folders, metrics baseline |
 
 ---
@@ -161,15 +162,9 @@ Two gates repeat (api, app): same `ai_blob_score`/`spec_drift` check, same `/pon
 
 ### How to start a feature
 
-Tell Claude:
-> "I want to build [feature]. Load spec-driven-development."
+Tell Claude `/ship-feature [description]` and the driver runs the 5 layers above end-to-end.
 
-Claude will:
-1. Create `brain/Features/<feature>.md` — the ticket
-2. Create `docs/superpowers/specs/YYYY-MM-DD-<feature>.md` — the detailed spec
-3. Run graphify to understand existing modules
-4. Optionally generate a UI mockup in `docs/designs/`
-5. Start the TDD loop per task
+To do just one layer by hand instead — say, only the spec — load that skill directly: "I want to build [feature]. Load spec-driven-development."
 
 ### How to continue after a session ends
 
@@ -183,17 +178,9 @@ Skills are markdown files in `.claude/skills/`. Claude loads them on demand with
 
 ### `driver`
 
-**Trigger:** `/ship-feature` — say this to ship a whole feature end-to-end.
+**Trigger:** `/ship-feature` — the default way to ship a whole feature. See [Standard workflow](#standard-workflow) above for the 5 layers and the gate between them.
 
-The orchestrator. Coordinates the other skills through 5 layers — spec, api, app, qa, stats — instead of you chaining them by hand. Groups the spec's tasks by layer from their `Stack:` tag, runs each layer's skill, and between layers runs:
-
-```bash
-scripts/metric-logger.sh report
-```
-
-If the report flags `ai_blob_score` over 20 or a file outside the layer's declared scope (`spec_drift`), the driver stops there — refactor or amend the spec before it lets the next layer start. Each layer ends in exactly one commit (`spec(...)`, `feat(...): api —`, `feat(...): app —`, `test(...): e2e —`, `chore(...): stats —`), then `git push-pr` opens the PR.
-
-Full mechanics (resuming a feature mid-flight, parallelization within a layer, skipping layers that don't apply) in `.claude/skills/driver/SKILL.md`.
+Full mechanics (resuming a feature mid-flight, parallelization within a layer, skipping layers that don't apply) in `.claude/skills/driver/SKILL.md`. Run a layer's own skill directly instead when you only need that one piece, not the whole feature.
 
 ---
 
@@ -578,7 +565,10 @@ scripts/metric-logger.sh feature-report my-feature   # generate feature report
 
 | Command | What it does |
 |---------|-------------|
+| `/ship-feature` | Run the `driver` — spec → api → app → qa → stats, one commit per layer |
 | `/save` | Update brain vault with current session's work and `git commit` |
 | `/churn` | Generate AI vs human productivity artifact across all features |
 | `/code-review` | Review current branch against spec and coding standards |
 | `/e2e` | Load E2E skill and start the Playwright agent pipeline |
+| `/ponytail [lite\|full\|ultra\|off]` | Set the refactor-pass intensity the driver's gate calls on `ai_blob_score` |
+| `/ponytail-review` | Review a diff like a senior dev — called by the driver's gate, or on its own |
