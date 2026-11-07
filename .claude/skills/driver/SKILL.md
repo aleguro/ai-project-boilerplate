@@ -84,7 +84,8 @@ The mockup (if any) was already made and approved back in layer 1 — nothing de
 1. Load `e2e`. Run the three-agent pipeline (planner → generator → healer) against the use cases from the spec.
 2. Commit: `test(<feature>): e2e — <scenarios covered>`
 3. **Gate:** all specs green. A red spec after the healer's pass means stop and surface it — the driver does not paper over a failing test by narrowing scope.
-4. No brain update — tests do not generate domain knowledge. Add `qa` to `layers_committed:`.
+4. While the stack is still up (needed to re-run the suite): once a PR exists for this branch, run `scripts/e2e-to-gif.sh --pr <N>` to attach the recordings as visual evidence — needs `video: 'on'` in `playwright.config.ts` (see `docs/superpowers/e2e/README.md`). Skip silently if no PR exists yet; the stats layer's `git push-pr` opens one, so revisit this after step 5 if it was skipped here.
+5. No brain update — tests do not generate domain knowledge. Add `qa` to `layers_committed:`.
 
 ### 5. Layer: stats
 

@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
-# e2e-to-gif.sh — convert Playwright .webm recordings to GIFs and upload as
-# GitHub release assets, then post a download table as a PR comment.
+# e2e-to-gif.sh — re-runs the Playwright suite (needs use.video set in
+# playwright.config.ts), converts the recordings to GIFs, uploads them as
+# GitHub release assets (not committed to git — keeps the repo small), then
+# posts a download table as a PR comment.
 #
 # Usage:
-#   scripts/e2e-to-gif.sh                  # converts all webm in test-results/
+#   scripts/e2e-to-gif.sh                  # converts all recordings from a fresh run
 #   scripts/e2e-to-gif.sh --pr 42          # also posts a PR comment with the GIFs
 #   scripts/e2e-to-gif.sh --width 640      # override output width (default: 800)
 #
-# Requirements: ffmpeg, gh (GitHub CLI authenticated)
+# Requirements: ffmpeg, gh (GitHub CLI authenticated), the app stack already
+# running (docker compose up) since this re-runs the suite against it.
 
 set -euo pipefail
 
 REPO_ROOT="$(git -C "$(dirname "$0")/.." rev-parse --show-toplevel)"
-RESULTS_DIR="${REPO_ROOT}/test-results"
-GIF_DIR="${REPO_ROOT}/test-results/gifs"
+GIF_DIR="${REPO_ROOT}/tests/e2e/artifacts/gifs"
 WIDTH=800
 PR_NUMBER=""
 BRANCH="$(git -C "$REPO_ROOT" branch --show-current)"
@@ -31,35 +33,34 @@ if ! command -v ffmpeg &>/dev/null; then
   exit 1
 fi
 
-# Find all webm recordings
-WEBM_FILES=$(find "$RESULTS_DIR" -name "*.webm" 2>/dev/null | sort || echo "")
-if [ -z "$WEBM_FILES" ]; then
-  echo "No .webm files found in test-results/. Run Playwright with video:'on' first." >&2
-  exit 1
-fi
+E2E_DIR="${REPO_ROOT}/tests/e2e"
+JSON_REPORT="$(mktemp)"
+
+# Re-run the suite with the json reporter to get an exact title -> video path
+# mapping. Playwright's own path sanitization truncates a long test title and
+# splices in a hash (e.g. "TC-04-logging-in-..." becomes "TC-2099d-...",
+# merging the hash into what looks like the TC number) once the combined
+# describe+title+project path gets long enough — regex-guessing the real
+# title back out of that mangled directory name doesn't reliably work. The
+# json reporter's `attachments` array gives the real title and video path
+# directly, no guessing.
+echo "Running suite (json reporter, for title -> video mapping)..."
+(cd "$E2E_DIR" && npx playwright test --reporter=json > "$JSON_REPORT" 2>/dev/null) || true
 
 mkdir -p "$GIF_DIR"
 
-# Convert each .webm → .gif
+# Convert each (title, video path) pair -> .gif
 GIF_FILES=()
 echo "Converting recordings..."
-while IFS= read -r webm; do
-  # Derive readable name: extract TC-NN + everything after the 5-char hash
-  # Input: auth-login-TC-01-Login-pag-3069c-rd-field-and-sign-in-button-chromium
-  # Output: TC-01-rd-field-and-sign-in-button
-  test_dir=$(basename "$(dirname "$webm")")
-  short=$(echo "$test_dir" | sed 's/-chromium$//' \
-    | python3 -c "
-import sys, re
-s = sys.stdin.read().strip()
-# Find TC-NN, grab it + skip the truncated middle word (5-char hash + next segment)
-m = re.search(r'(TC-\d+)-[^-]+-[^-]+-[^-]+-[a-f0-9]{5}-(.+)', s)
-if m:
-    print(m.group(1) + '-' + m.group(2))
-else:
-    # fallback: strip hash and chromium
-    print(re.sub(r'-[a-f0-9]{5}-', '-', s)[:60])
-")
+while IFS=$'\t' read -r title webm; do
+  [ -z "$webm" ] && continue
+  short=$(python3 -c "
+import re, sys
+t = sys.argv[1]
+t = re.sub(r'[^A-Za-z0-9 .-]', '', t)
+t = re.sub(r'\s+', '-', t.strip())
+print(t[:80])
+" "$title")
   gif="${GIF_DIR}/${short}.gif"
 
   ffmpeg -i "$webm" \
@@ -69,7 +70,33 @@ else:
 
   GIF_FILES+=("$gif")
   echo "  ✓ $(basename "$gif")"
-done <<< "$WEBM_FILES"
+done < <(python3 -c "
+import json
+with open('${JSON_REPORT}') as f:
+    data = json.load(f)
+
+def walk(suite, prefix=''):
+    title = suite.get('title', '')
+    title_prefix = prefix if title.endswith('.ts') else f'{prefix} {title}'.strip()
+    for spec in suite.get('specs', []):
+        for test in spec.get('tests', []):
+            for result in test.get('results', []):
+                for att in result.get('attachments', []):
+                    if att.get('name') == 'video' and att.get('path'):
+                        print(f'{title_prefix} {spec[\"title\"]}'.strip() + '\t' + att['path'])
+    for child in suite.get('suites', []):
+        walk(child, title_prefix)
+
+for top_suite in data.get('suites', []):
+    walk(top_suite)
+" 2>/dev/null)
+
+rm -f "$JSON_REPORT"
+
+if [ ${#GIF_FILES[@]} -eq 0 ]; then
+  echo "No video attachments found in the test run. Is use.video set in playwright.config.ts?" >&2
+  exit 1
+fi
 
 DATE="$(date +%Y%m%d-%H%M)"
 TAG="e2e-recordings-$(echo "$BRANCH" | tr '/' '-')-${DATE}"
@@ -86,18 +113,19 @@ gh release create "$TAG" \
   "${GIF_FILES[@]}"
 
 MARKDOWN="## E2E Recordings
-
-| Test | Recording |
-|------|-----------|"
+"
 for gif in "${GIF_FILES[@]}"; do
   filename=$(basename "$gif")
   asset_url="https://github.com/${REPO}/releases/download/${TAG}/${filename}"
   label=$(basename "$gif" .gif | sed 's/-/ /g' | sed 's/TC /TC-/; s/  */ /g')
+  # Image syntax (not a link) so GitHub renders the GIF inline, playing, in
+  # the comment body itself — a link would just be a click-to-download.
   MARKDOWN="${MARKDOWN}
-| ${label} | [▶ Download GIF](${asset_url}) |"
+### ${label}
+![${label}](${asset_url})
+"
 done
 MARKDOWN="${MARKDOWN}
-
 > Release: https://github.com/${REPO}/releases/tag/${TAG}"
 
 echo "✓ Uploaded to: https://github.com/${REPO}/releases/tag/${TAG}"
