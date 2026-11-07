@@ -22,7 +22,7 @@ The driver is that missing coordinator. It owns the sequence, the gates between 
 
 | # | Layer | Does | Delegates to | Commit prefix |
 |---|-------|------|---------------|----------------|
-| 1 | **spec** | Actors, use cases, stages/tasks, graphify context | `spec-driven-development` (Steps 1–2) | `spec(<feature>):` |
+| 1 | **spec** | Actors, use cases, stages/tasks, graphify context, mockup (only if the spec needs one) — then a human refinement loop before anything else runs | `spec-driven-development` (Steps 1–3, Step 3 conditional) | `spec(<feature>):` (+ `design: mockup <feature>` if a mockup was made) |
 | 2 | **api** | Tasks tagged `rails`/`python` that define a contract (endpoints, schemas, jobs) | `tdd-loop` + `rails` or `python` | `feat(<feature>): api —` |
 | 3 | **app** | Tasks tagged `react` (or UI-facing rails views) that consume the contract | `tdd-loop` + `react` | `feat(<feature>): app —` |
 | 4 | **qa** | End-to-end coverage of the use cases | `e2e` (planner → generator → healer) | `test(<feature>): e2e —` |
@@ -38,15 +38,21 @@ A feature with no UI skips layer 3. A feature with no new contract (pure UI, pur
 
 Before doing anything: does `brain/Features/<feature>.md` already exist? If yes, read its `layers_committed:` frontmatter field — a list like `[spec, api]` — and resume from the next layer that isn't in it. Ticked tasks alone aren't enough to tell: a task can be green while the one commit for its layer never landed (session cut mid-step), so `layers_committed` is the one source of truth for "is this layer actually done." Don't restart a layer already in that list.
 
+If a ticket/spec file exists on disk but `spec` isn't in `layers_committed:` yet, the previous session drafted a spec that was never approved and never committed — don't rewrite it from scratch. Re-present what's already there (and the mockup, if one was made) and resume the human checkpoint from there.
+
 ### 1. Layer: spec
 
-1. Load `spec-driven-development`, run Steps 1 (ticket + spec) and 2 (graphify context) only.
-2. Group the spec's tasks by layer using their `Stack:` tag:
+1. Load `spec-driven-development`, run Steps 1 (ticket + spec) and 2 (graphify context).
+2. **Mockup, only if the spec actually needs one** — apply the same trigger `spec-driven-development` Step 3 already defines (the spec mentions UI, form, modal, screen, panel, or visual list). If it doesn't trigger, skip Step 3 entirely: don't invoke `frontend-design`, don't create a `docs/designs/` entry. Judge this from what the spec's use cases actually describe, not from the stack tag alone — a `react` task can still be a pure data/CLI client with no screen.
+3. Group the spec's tasks by layer using their `Stack:` tag:
    - `rails` / `python` tasks that define request/response contracts, schemas, or background jobs → **api**
    - `react` tasks, and any `rails` view-only tasks → **app**
-3. Commit: `spec(<feature>): <one-line summary>`
-4. **Gate:** none yet — this is the baseline. Run `scripts/metric-logger.sh report` once now anyway so there's a zero-point to diff against later.
-5. Add `spec` to `layers_committed:` in `brain/Features/<feature>.md`.
+4. **Human checkpoint — do not commit yet.** Present the ticket, the spec (actors, use cases, stages/tasks), and the mockup screenshot if one was made. Ask explicitly whether to proceed, and wait for an explicit answer — do not treat silence, a topic change, or an unrelated reply as approval.
+   - If the human asks for changes (to the spec text, the task breakdown, or the mockup): revise, re-present, and repeat. This is a loop, not a single round — keep refining until the human gives explicit approval.
+   - Only on explicit approval, continue to step 5.
+5. Commit: `spec(<feature>): <one-line summary>` (and `design: mockup <feature>` first, as its own commit, if a mockup was made in step 2).
+6. **Gate:** none yet — this is the baseline. Run `scripts/metric-logger.sh report` once now anyway so there's a zero-point to diff against later.
+7. Add `spec` to `layers_committed:` in `brain/Features/<feature>.md`.
 
 ### 2. Layer: api (skip if no backend-contract tasks)
 
@@ -59,7 +65,7 @@ Before doing anything: does `brain/Features/<feature>.md` already exist? If yes,
 
 Same mechanics as **api**: parallelize across stacks if independent, run `tdd-loop` per task, one commit for the layer (`feat(<feature>): app — <tasks summary>`), same gate below before advancing. On pass, add `app` to `layers_committed:`.
 
-If the spec touches UI and no mockup exists yet, run `spec-driven-development` Step 3 (mockup) first and fold its commit into this layer.
+The mockup (if any) was already made and approved back in layer 1 — nothing design-related happens here, only implementation against it.
 
 ### 4. Layer: qa
 
