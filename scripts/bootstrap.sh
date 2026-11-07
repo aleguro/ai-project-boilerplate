@@ -28,25 +28,16 @@ echo "  [ok] Replaced {{PROJECT_NAME}} with '${PROJECT}'"
 git config alias.push-pr "!f() { ${REPO_ROOT}/scripts/push-pr.sh \"\$@\"; }; f"
 echo "  [ok] Git alias 'push-pr' configured"
 
-# 3. Install git post-commit hook — auto-updates graphify graph after every commit
-HOOK_FILE="${REPO_ROOT}/.git/hooks/post-commit"
-cat > "$HOOK_FILE" << 'HOOK'
-#!/usr/bin/env bash
-# Auto-update graphify knowledge graph after each commit
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-bash "${REPO_ROOT}/scripts/graphify-update.sh" 2>/dev/null || true
-HOOK
-chmod +x "$HOOK_FILE"
-echo "  [ok] git post-commit hook installed (graphify-update runs automatically)"
-
-# 4. Initialize graphify (build initial knowledge graph)
-if python3 -c "import graphify" &>/dev/null 2>&1; then
-  echo "  [..] Initializing graphify knowledge graph..."
-  bash "${REPO_ROOT}/scripts/graphify-update.sh" init
-  echo "  [ok] graphify initialized — graph will update automatically on every commit"
+# 3. Install graphify (skill + git hooks + initial graph) via the real graphify CLI
+if command -v graphify &>/dev/null; then
+  echo "  [..] Installing graphify skill and git hooks..."
+  graphify claude install
+  graphify hook install
+  (cd "${REPO_ROOT}" && graphify update .)
+  echo "  [ok] graphify installed — graph will update automatically on every commit"
 else
   echo "  [!] graphify not found — install it, then run: make graphify-init"
-  echo "      pip install graphify-cli"
+  echo "      uv tool install graphifyy   (or: pipx install graphifyy)"
 fi
 
 # 5. Verify Node.js (required for Playwright MCP)
