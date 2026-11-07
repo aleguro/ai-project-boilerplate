@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$CLAUDE_PROJECT_DIR\" && scripts/metric-logger.sh",
+            "command": "\"$(git rev-parse --show-toplevel)/scripts/metric-logger.sh\"",
             "timeout": 5
           }
         ]
@@ -16,7 +16,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$CLAUDE_PROJECT_DIR\" && scripts/metric-logger.sh",
+            "command": "\"$(git rev-parse --show-toplevel)/scripts/metric-logger.sh\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/scripts/metric-logger.sh\"",
             "timeout": 5
           }
         ]
@@ -28,7 +38,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$CLAUDE_PROJECT_DIR\" && scripts/token-estimator.sh",
+            "command": "\"$(git rev-parse --show-toplevel)/scripts/token-estimator.sh\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/scripts/test-result-logger.sh\"",
             "timeout": 5
           }
         ]

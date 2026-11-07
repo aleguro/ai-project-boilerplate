@@ -28,27 +28,29 @@ if [ -f "$MODEL_FILE" ]; then
 fi
 
 # Read PostToolUse payload from stdin
-INPUT="$(cat)"
+export HOOK_INPUT="$(cat)"
 
-# Extract tool name, input, response via python3
-read -r TOOL_NAME TOOL_INPUT_LEN TOOL_RESPONSE_LEN < <(python3 - <<'PYEOF'
-import sys, json
+# Extract tool name, input, response via python3. Passed through an env var,
+# not stdin — a heredoc body (<<'PYEOF') always wins stdin over an appended
+# here-string/process-substitution redirect, so reading sys.stdin here would
+# silently get nothing and fall into the except branch every time.
+read -r TOOL_NAME TOOL_INPUT_LEN TOOL_RESPONSE_LEN < <(python3 -c "
+import os, json
 
 try:
-    d = json.load(sys.stdin)
+    d = json.loads(os.environ['HOOK_INPUT'])
 except Exception:
-    print("unknown 0 0")
-    sys.exit(0)
+    print('unknown 0 0')
+    raise SystemExit
 
-tool_name     = d.get("tool_name", "unknown")
-tool_input    = json.dumps(d.get("tool_input", {}))
-tool_response = d.get("tool_response", "")
+tool_name     = d.get('tool_name', 'unknown')
+tool_input    = json.dumps(d.get('tool_input', {}))
+tool_response = d.get('tool_response', '')
 if not isinstance(tool_response, str):
     tool_response = json.dumps(tool_response)
 
 print(tool_name, len(tool_input), len(tool_response))
-PYEOF
-<<< "$INPUT")
+")
 
 # Estimate tokens
 # output: the model generated the tool call itself

@@ -9,12 +9,14 @@ This doc is the source of truth for the project's Playwright E2E harness. The th
 The agents use the `mcp__playwright-test__*` tools. Install the Playwright MCP server:
 
 ```bash
-# Via Claude Code MCP settings
-# Add to .claude/settings.json under "mcpServers":
+# Add a .mcp.json at the project root (NOT .claude/settings.json — that
+# file doesn't accept an "mcpServers" key on every Claude Code host):
 {
-  "playwright-test": {
-    "command": "npx",
-    "args": ["@playwright/mcp@latest", "--isolated"]
+  "mcpServers": {
+    "playwright-test": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest", "--isolated"]
+    }
   }
 }
 ```
@@ -31,6 +33,16 @@ npm install -g @playwright/mcp
 cd tests/e2e
 npm install
 npx playwright install chromium
+```
+
+Set `video: 'on'` under `use` in `playwright.config.ts` — without it there's nothing for `scripts/e2e-to-gif.sh` to turn into evidence GIFs for the PR. `trace: 'retain-on-failure'` alone only keeps something when a test fails:
+
+```ts
+use: {
+  baseURL: process.env.BASE_URL ?? 'http://localhost:5173',
+  trace: 'retain-on-failure',
+  video: 'on',
+},
 ```
 
 ### 3. Test stack

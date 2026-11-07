@@ -37,6 +37,7 @@ print(val)
 }
 
 TOTAL_CALLS=$(wc -l < "$METRICS_FILE" 2>/dev/null | tr -d ' ' || echo 0)
+SESSION_MINUTES=$(_report_val session_minutes "n/a")
 GRAPHIFY_COUNT=$(_report_val graphify_calls)
 BRAIN_READS=$(_report_val brain_docs_read)
 BRAIN_WRITES=$(_report_val brain_docs_written)
@@ -45,6 +46,7 @@ TASKS_DONE=$(_report_val tasks_completed)
 TASKS_TOTAL_VAL=$(_report_val tasks_total)
 AI_BLOB=$(_report_val ai_blob_score)
 COST_USD=$(_report_val "cost.total_usd" "0")
+COST_SOURCE=$(_report_val "cost.source" "unknown")
 
 # Test results: build a markdown table from test_results dict in the report
 TEST_EVIDENCE=""
@@ -168,12 +170,13 @@ ${COMMIT_SUMMARY}
 
 | Metric | Value |
 |--------|-------|
+| Session time | ${SESSION_MINUTES} min |
 | Session tool calls | ${TOTAL_CALLS} |
 | Token drift | ${DRIFT_STR} |
 | Tasks completed | ${TASKS_DONE} / ${TASKS_TOTAL_VAL} |
 | Test runs | ${TEST_RUNS} |
 | AI blob score | ${AI_BLOB} / 20 max |
-| Session cost | \$${COST_USD} |
+| Session cost (\`${COST_SOURCE}\`) | \$${COST_USD} |
 
 ## Graphify Usage (${GRAPHIFY_COUNT} queries)
 ${GRAPHIFY_QUERIES:-  _none — run graphify query before next feature_}

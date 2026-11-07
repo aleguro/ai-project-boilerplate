@@ -93,9 +93,9 @@ make graphify-init
 
 After that, the knowledge graph updates automatically on every `git commit` via the post-commit hook bootstrap installed.
 
-### 6. Add the Playwright MCP to Claude Code settings
+### 6. Add the Playwright MCP
 
-In `.claude/settings.json`, add the MCP server so the E2E agents have browser access:
+Create a `.mcp.json` at the project root so the E2E agents have browser access — not `.claude/settings.json`, which doesn't accept an `mcpServers` key on every Claude Code host:
 
 ```json
 {
@@ -416,7 +416,8 @@ Reads all feature reports from `brain/Metrics/` and publishes an HTML artifact w
 | `tasks_completed` | spec tasks completed / total |
 | `ai_blob_score` | functions > 40 lines without tests (alert if > 20) |
 | `spec_drift` | code outside the spec's scope (alert if > 10%) |
-| `cost.total_usd` | AI token cost by model |
+| `cost.total_usd` | Real session cost, read from the session's own transcript usage (check `cost.source`); falls back to a rough tool-I/O-size proxy only when no transcript is found (e.g. CI) |
+| `session_minutes` | Elapsed minutes from the first recorded hook event to report time |
 
 ### Model routing (cost optimization)
 
@@ -535,7 +536,8 @@ git push-pr                           # push branch + create one PR, metrics in 
 
 # Metric logging (used by Claude and manually)
 scripts/metric-logger.sh task T1.1 green 4h          # log a completed task with human estimate
-scripts/metric-logger.sh cost sonnet 12000 4000       # log token usage
+scripts/metric-logger.sh cost sonnet 12000 4000       # log token usage (fallback only — real cost is read from the transcript automatically)
+scripts/metric-logger.sh testresult rspec "15 examples, 0 failures"  # auto-logged by the PostToolUse hook; rarely needed by hand
 scripts/metric-logger.sh graphify "query:auth"        # log a graphify call
 scripts/metric-logger.sh report                       # generate session report
 scripts/metric-logger.sh feature-report my-feature   # generate feature report
