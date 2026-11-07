@@ -47,9 +47,9 @@ If a ticket/spec file exists on disk but `spec` isn't in `layers_committed:` yet
 3. Group the spec's tasks by layer using their `Stack:` tag:
    - `rails` / `python` tasks that define request/response contracts, schemas, or background jobs → **api**
    - `react` tasks, and any `rails` view-only tasks → **app**
-4. **Human checkpoint — do not commit yet.** Present the ticket, the spec (actors, use cases, stages/tasks), and the mockup screenshot if one was made. Ask explicitly whether to proceed, and wait for an explicit answer — do not treat silence, a topic change, or an unrelated reply as approval.
-   - If the human asks for changes (to the spec text, the task breakdown, or the mockup): revise, re-present, and repeat. This is a loop, not a single round — keep refining until the human gives explicit approval.
-   - Only on explicit approval, continue to step 5.
+4. **Human checkpoint — a hard stop, not a prompt you can talk yourself past.** Present the ticket, the spec (actors, use cases, stages/tasks), and the mockup screenshot if one was made, then end your turn without calling another tool — use `AskUserQuestion` or just stop and wait. This is exactly the "decision only the human can make" case that overrides any bias toward not pausing for confirmation: never read a short reply, a topic change, an interruption, or the mere fact that nothing objected as approval. Running `/ship-feature` again on a feature whose spec file already exists and isn't in `layers_committed:` is NOT itself approval, however long ago it was drafted — it means go back to this checkpoint, not past it.
+   - If the human asks for changes (to the spec text, the task breakdown, or the mockup): revise, re-present, and repeat. This is a loop, not a single round — keep refining until the human's reply is an explicit, affirmative go-ahead (e.g. "approved," "yes, proceed," "looks good, continue") said about this spec specifically.
+   - Only on that explicit approval, continue to step 5 — in a new turn, after the human has actually replied.
 5. Commit: `spec(<feature>): <one-line summary>` (and `design: mockup <feature>` first, as its own commit, if a mockup was made in step 2).
 6. **Gate:** none yet — this is the baseline. Run `scripts/metric-logger.sh report` once now anyway so there's a zero-point to diff against later.
 7. Add `spec` to `layers_committed:` in `brain/Features/<feature>.md`.
