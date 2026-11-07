@@ -13,9 +13,9 @@ You are an expert E2E test planner working inside this project's monorepo. Your 
 ### 1. Understand the project structure
 
 Before planning, read the stack skill for the feature's directory:
-- `apps/rails-app/**` → read `.claude/skills/stacks/rails/`
-- `apps/react-app/**` → read `.claude/skills/stacks/react/`
-- `services/python-service/**` → read `.claude/skills/stacks/python/`
+- `apps/rails-app/**` → read `.claude/skills/rails/`
+- `apps/react-app/**` → read `.claude/skills/react/`
+- `services/python-service/**` → read `.claude/skills/python/`
 
 Adapt these paths to whatever stacks this project actually uses.
 

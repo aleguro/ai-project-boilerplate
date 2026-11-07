@@ -10,7 +10,7 @@ description: Code review for this monorepo's pull requests. Reads docs/review.md
 1. Read `docs/review.md` in full — especially Part 2 (learnings from past reviews)
 2. Run `git diff origin/main...HEAD --stat` to understand scope and which stacks changed (`apps/rails-app`, `apps/react-app`, `services/python-service`, …)
 3. Check the spec in `docs/superpowers/specs/` and the active plan in `docs/superpowers/plans/` for intended scope
-4. Load the stack skill(s) for whatever changed (`stacks/rails`, `stacks/react`, `stacks/python`) — review against that stack's own conventions, not generic rules
+4. Load the stack skill(s) for whatever changed (`rails`, `react`, `python`) — review against that stack's own conventions, not generic rules
 
 ## Review Checklist
 
@@ -21,7 +21,7 @@ description: Code review for this monorepo's pull requests. Reads docs/review.md
 - [ ] No functions over 40 lines without test coverage (`ai_blob_score`)
 
 ### Architecture
-- [ ] Controllers/routes stay thin — no business logic (see the relevant `stacks/*` skill for where logic belongs)
+- [ ] Controllers/routes stay thin — no business logic (see the relevant stack skill — `rails`, `react`, or `python` — for where logic belongs)
 - [ ] Shared types/schemas live in one place — never duplicated across stacks
 - [ ] No secrets hardcoded (check for API keys, passwords, tokens)
 - [ ] New dependencies justified and minimal

@@ -44,9 +44,9 @@ docs/
 | `tdd-loop` | During implementation of each spec task |
 | `e2e` | Before any E2E / Playwright work |
 | `churn` | AI vs human productivity analysis across features (`/churn`) |
-| `stacks/rails` | When working in `apps/rails-app/` |
-| `stacks/react` | When working in `apps/react-app/` |
-| `stacks/python` | When working in `services/python-service/` |
+| `rails` | When working in `apps/rails-app/` |
+| `react` | When working in `apps/react-app/` |
+| `python` | When working in `services/python-service/` |
 | `code-review` | After a PR or on `/code-review` |
 | `obsidian-integration` | When reading/writing the brain vault |
 
@@ -65,9 +65,9 @@ Agents are autonomous sub-agents with restricted toolsets. Use them via the `Age
 ### Automatic stack detection
 
 When the user asks to work on a file, load the stack skill based on the directory:
-- `apps/rails-app/**` → load `stacks/rails`
-- `apps/react-app/**` → load `stacks/react`
-- `services/python-service/**` → load `stacks/python`
+- `apps/rails-app/**` → load `rails`
+- `apps/react-app/**` → load `react`
+- `services/python-service/**` → load `python`
 
 ---
 
@@ -161,7 +161,7 @@ Stage 1:
 For each independent task:
   Agent(subagent_type: "fresh", isolation: "worktree",
         model: "sonnet",
-        prompt: "Implement T1.x: <desc>. Load stacks/<stack> skill.
+        prompt: "Implement T1.x: <desc>. Load <stack> skill.
                  Run tdd-loop. Commit feat(T1.x): <desc>.")
 ```
 
