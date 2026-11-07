@@ -6,12 +6,15 @@
 #
 # Usage (explicit mode):
 #   scripts/metric-logger.sh graphify "query:authentication"
-#   scripts/metric-logger.sh task T1.1 green 4h       # human estimate from spec (e.g. 4h, 1.5h)
-#   scripts/metric-logger.sh cost opus 5000 2000       # input_tokens output_tokens
+#   scripts/metric-logger.sh task T1.1 green 4h                      # human estimate from spec (e.g. 4h, 1.5h)
+#   scripts/metric-logger.sh cost opus 5000 2000                      # input_tokens output_tokens
 #   scripts/metric-logger.sh cost sonnet 12000 4000
 #   scripts/metric-logger.sh cost haiku 3000 800
+#   scripts/metric-logger.sh testresult rspec "9 examples, 0 failures, 1 pending"
+#   scripts/metric-logger.sh testresult vitest "2 passed (2)"
+#   scripts/metric-logger.sh testresult playwright "3 passed (1.1s)"
 #   scripts/metric-logger.sh report
-#   scripts/metric-logger.sh feature-report <feature-name>   # saves docs/metrics/features/<feature>.json
+#   scripts/metric-logger.sh feature-report <feature-name>            # saves docs/metrics/features/<feature>.json
 
 set -euo pipefail
 
@@ -49,13 +52,14 @@ _report() {
   # (the common case — e.g. no graphify calls yet) makes the whole pipeline
   # exit non-zero, which `set -e` treats as a failed assignment and aborts
   # the script right here, silently, with no output at all.
-  GRAPHIFY_CALLS=$(grep '"type":"graphify"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ' || true)
-  BRAIN_READS=$(grep '"type":"brain_read"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ' || true)
-  FILE_READS=$(grep '"type":"read"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ' || true)
-  FILE_WRITES=$(grep '"type":"write"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ' || true)
-  TEST_RUNS=$(grep '"type":"test_run"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ' || true)
-  TASKS_GREEN=$(grep '"type":"task".*"status":"green"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ' || true)
-  TASKS_TOTAL=$(grep '"type":"task"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ' || true)
+  GRAPHIFY_CALLS=$(grep '"type": "graphify"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ' || true)
+  BRAIN_READS=$(grep '"type": "brain_read"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ' || true)
+  BRAIN_WRITES=$(grep '"type": "brain_write"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ' || true)
+  FILE_READS=$(grep '"type": "read"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ' || true)
+  FILE_WRITES=$(grep '"type": "write"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ' || true)
+  TEST_RUNS=$(grep '"type": "test_run"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ' || true)
+  TASKS_GREEN=$(grep '"type": "task".*"status": "green"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ' || true)
+  TASKS_TOTAL=$(grep '"type": "task"' "$METRICS_FILE" 2>/dev/null | wc -l | tr -d ' ' || true)
 
   # AI blob score: functions/methods > 40 lines in changed files.
   # Python has no closing keyword — a function ends when a line drops back
@@ -109,8 +113,27 @@ print(count)
     SPEC_DRIFT="check manually — compare changed files vs spec scope"
   fi
 
-  export BRANCH TIMESTAMP METRICS_FILE \
-         GRAPHIFY_CALLS BRAIN_READS FILE_READS FILE_WRITES \
+  # Collect test result summaries (suite → last summary line)
+  TEST_RESULTS_JSON=$(python3 -c "
+import json, sys
+results = {}
+try:
+    for line in open('${METRICS_FILE}'):
+        try:
+            e = json.loads(line)
+            if e.get('type') == 'test_result':
+                results[e['suite']] = e['summary']
+        except Exception:
+            pass
+except FileNotFoundError:
+    pass
+print(json.dumps(results))
+" 2>/dev/null || echo '{}')
+
+  mkdir -p "${REPO_ROOT}/docs/metrics"
+
+  export BRANCH TIMESTAMP METRICS_FILE TEST_RESULTS_JSON OUT_FILE \
+         GRAPHIFY_CALLS BRAIN_READS BRAIN_WRITES FILE_READS FILE_WRITES \
          TEST_RUNS TASKS_GREEN TASKS_TOTAL AI_BLOB_SCORE SPEC_DRIFT
 
   python3 - <<'PYEOF'
@@ -122,6 +145,7 @@ metrics_file = os.environ["METRICS_FILE"]
 
 graphify_calls = int(os.environ["GRAPHIFY_CALLS"])
 brain_reads    = int(os.environ["BRAIN_READS"])
+brain_writes   = int(os.environ["BRAIN_WRITES"])
 file_reads     = int(os.environ["FILE_READS"])
 file_writes    = int(os.environ["FILE_WRITES"])
 test_runs      = int(os.environ["TEST_RUNS"])
@@ -129,6 +153,8 @@ tasks_green    = int(os.environ["TASKS_GREEN"])
 tasks_total    = int(os.environ["TASKS_TOTAL"])
 ai_blob_score  = int(os.environ["AI_BLOB_SCORE"])
 spec_drift     = os.environ["SPEC_DRIFT"]
+test_results   = json.loads(os.environ.get("TEST_RESULTS_JSON", "{}"))
+out_file       = os.environ["OUT_FILE"]
 
 # Pricing per 1M tokens (USD) — update when Anthropic changes rates
 PRICING = {
@@ -168,6 +194,7 @@ report = {
     "generated_at": timestamp,
     "graphify_calls": graphify_calls,
     "brain_docs_read": brain_reads,
+    "brain_docs_written": brain_writes,
     "file_reads": file_reads,
     "file_writes": file_writes,
     "test_runs": test_runs,
@@ -175,6 +202,7 @@ report = {
     "tasks_total": tasks_total,
     "ai_blob_score": ai_blob_score,
     "spec_drift": spec_drift,
+    "test_results": test_results,
     "cost": {
         "total_usd": round(total_cost, 4),
         "by_model": cost_by_model,
@@ -195,10 +223,11 @@ if report["graphify_calls"] < report["thresholds"]["min_graphify_calls"]:
     report["alerts"].append("low graphify usage — did you query the graph before coding?")
 if total_cost > 5.0:
     report["alerts"].append(f"session cost ${total_cost:.2f} — review model routing")
+with open(out_file, "w") as f:
+    json.dump(report, f, indent=2)
 print(json.dumps(report, indent=2))
+print(f"→ Report saved to {out_file}", file=__import__('sys').stderr)
 PYEOF
-
-  echo "→ Report saved to ${OUT_FILE}"
 }
 
 # ── Feature report: per-feature AI vs human comparison ────────────────────────
@@ -353,6 +382,14 @@ if [ "${1:-}" != "" ] && [ "${1:-}" != "{" ]; then
     cost)
       _emit cost "model=${2:-unknown}" "input_tokens=${3:-0}" "output_tokens=${4:-0}"
       ;;
+    testresult)
+      # Usage: scripts/metric-logger.sh testresult <suite> "<summary line>"
+      # suite: rspec | vitest | playwright (or any name)
+      python3 -c "
+import json, sys
+print(json.dumps({'type': 'test_result', 'ts': sys.argv[1], 'suite': sys.argv[2], 'summary': sys.argv[3]}))
+" "$TIMESTAMP" "${2:-unknown}" "${3:-}" >> "$METRICS_FILE"
+      ;;
     report)
       _report
       ;;
@@ -380,7 +417,11 @@ case "$TOOL_NAME" in
     ;;
   Edit|Write)
     FILE_PATH="$(echo "$TOOL_INPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('file_path',''))" 2>/dev/null || echo "")"
-    _emit write "file=${FILE_PATH}"
+    if echo "$FILE_PATH" | grep -q "brain/"; then
+      _emit brain_write "doc=${FILE_PATH}"
+    else
+      _emit write "file=${FILE_PATH}"
+    fi
     ;;
   Bash|Grep)
     CMD="$(echo "$TOOL_INPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('command',''))" 2>/dev/null || echo "")"
