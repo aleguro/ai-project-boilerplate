@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "scripts/metric-logger.sh",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && scripts/metric-logger.sh",
             "timeout": 5
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "scripts/metric-logger.sh",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && scripts/metric-logger.sh",
             "timeout": 5
           }
         ]
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "scripts/token-estimator.sh",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && scripts/token-estimator.sh",
             "timeout": 5
           }
         ]
