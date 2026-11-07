@@ -22,11 +22,11 @@ The driver is that missing coordinator. It owns the sequence, the gates between 
 
 | # | Layer | Does | Delegates to | Commit prefix |
 |---|-------|------|---------------|----------------|
-| 1 | **spec** | Actors, use cases, stages/tasks, graphify context, mockup (only if the spec needs one) — then a human refinement loop before anything else runs | `spec-driven-development` (Steps 1–3, Step 3 conditional) | `spec(<feature>):` (+ `design: mockup <feature>` if a mockup was made) |
-| 2 | **api** | Tasks tagged `rails`/`python` that define a contract (endpoints, schemas, jobs) | `tdd-loop` + `rails` or `python` | `feat(<feature>): api —` |
-| 3 | **app** | Tasks tagged `react` (or UI-facing rails views) that consume the contract | `tdd-loop` + `react` | `feat(<feature>): app —` |
-| 4 | **qa** | End-to-end coverage of the use cases | `e2e` (planner → generator → healer) | `test(<feature>): e2e —` |
-| 5 | **stats** | Metrics, brain update, PR | `churn`, `obsidian-integration`, `/save` semantics | `chore(<feature>): stats —` |
+| 1 | **spec** | Actors, use cases, stages/tasks, graphify context, mockup (conditional) + brain/Features + brain/Decisions — then a human refinement loop before anything else runs | `spec-driven-development` (Steps 1–3, Step 3 conditional), `obsidian-integration` | `spec(<feature>):` (+ `design: mockup <feature>` if a mockup was made) |
+| 2 | **api** | Tasks tagged `rails`/`python` that define a contract (endpoints, schemas, jobs) + brain/Database + brain/APIs | `tdd-loop` + `stacks/rails` or `stacks/python`, `obsidian-integration` | `feat(<feature>): api —` |
+| 3 | **app** | Tasks tagged `react` (or UI-facing rails views) that consume the contract + brain/Architecture + brain/Codebase | `tdd-loop` + `stacks/react`, `obsidian-integration` | `feat(<feature>): app —` |
+| 4 | **qa** | End-to-end coverage of the use cases (no brain update) | `e2e` (planner → generator → healer) | `test(<feature>): e2e —` |
+| 5 | **stats** | Metrics, final brain catch-all, PR | `churn`, `obsidian-integration`, `/save` semantics | `chore(<feature>): stats —` |
 
 A feature with no UI skips layer 3. A feature with no new contract (pure UI, pure script) skips layer 2. Never skip 1, 4, or 5.
 
@@ -51,33 +51,45 @@ If a ticket/spec file exists on disk but `spec` isn't in `layers_committed:` yet
    - If the human asks for changes (to the spec text, the task breakdown, or the mockup): revise, re-present, and repeat. This is a loop, not a single round — keep refining until the human's reply is an explicit, affirmative go-ahead (e.g. "approved," "yes, proceed," "looks good, continue") said about this spec specifically.
    - Only on that explicit approval, continue to step 5 — in a new turn, after the human has actually replied.
 5. Commit: `spec(<feature>): <one-line summary>` (and `design: mockup <feature>` first, as its own commit, if a mockup was made in step 2).
-6. **Gate:** none yet — this is the baseline. Run `scripts/metric-logger.sh report` once now anyway so there's a zero-point to diff against later.
-7. Add `spec` to `layers_committed:` in `brain/Features/<feature>.md`.
+6. Load `obsidian-integration`. Update `brain/Features/<feature>.md` to reflect the spec just written (the ticket was created in Step 1a of `spec-driven-development` — this updates it if anything changed). If the spec's **Design Decisions** section has content, create or update the relevant note in `brain/Decisions/` (one ADR per non-obvious decision).
+7. **Gate:** none yet — this is the baseline. Run `scripts/metric-logger.sh report` once now anyway so there's a zero-point to diff against later.
+8. Add `spec` to `layers_committed:` in `brain/Features/<feature>.md`.
 
 ### 2. Layer: api (skip if no backend-contract tasks)
 
 1. Apply the parallelization check from `spec-driven-development` (Step 4) **within this layer only**: 2+ api tasks on different stacks → parallel agents in worktrees; same stack or dependent → sequential, same session.
 2. For each task: load the matching `<stack>` skill, run `tdd-loop`, land on green.
 3. Do **not** commit per task here — that's `tdd-loop`'s own concern when run standalone. Under the driver, let all api tasks land, then make **one** commit for the layer: `feat(<feature>): api — <tasks summary>`.
-4. **Gate before moving to app** — run the check in "Gates, summarized" below. On pass, add `api` to `layers_committed:`.
+4. Load `obsidian-integration`. Update brain folders based on what this layer touched:
+   - Migrations or schema changes → update `brain/Database/` (table changes, new columns, index rationale)
+   - New or changed endpoints, webhooks, or external service integrations → update `brain/APIs/`
+   - If neither applies, skip this step.
+5. **Gate before moving to app** — run the check in "Gates, summarized" below. On pass, add `api` to `layers_committed:`.
 
 ### 3. Layer: app (skip if no UI/consumer tasks)
 
-Same mechanics as **api**: parallelize across stacks if independent, run `tdd-loop` per task, one commit for the layer (`feat(<feature>): app — <tasks summary>`), same gate below before advancing. On pass, add `app` to `layers_committed:`.
-
 The mockup (if any) was already made and approved back in layer 1 — nothing design-related happens here, only implementation against it.
+
+1. Apply the parallelization check: 2+ app tasks on different stacks → parallel agents in worktrees; same stack or dependent → sequential, same session.
+2. For each task: load the matching `stacks/<stack>` skill, run `tdd-loop`, land on green.
+3. One commit for the layer: `feat(<feature>): app — <tasks summary>`.
+4. Load `obsidian-integration`. Update brain folders based on what this layer touched:
+   - New services, data flows, or cross-component interactions → update `brain/Architecture/`
+   - New patterns, conventions, or modules introduced → update `brain/Codebase/`
+   - If neither applies, skip this step.
+5. **Gate before moving to qa** — run the check in "Gates, summarized" below. On pass, add `app` to `layers_committed:`.
 
 ### 4. Layer: qa
 
 1. Load `e2e`. Run the three-agent pipeline (planner → generator → healer) against the use cases from the spec.
 2. Commit: `test(<feature>): e2e — <scenarios covered>`
 3. **Gate:** all specs green. A red spec after the healer's pass means stop and surface it — the driver does not paper over a failing test by narrowing scope.
-4. Add `qa` to `layers_committed:`.
+4. No brain update — tests do not generate domain knowledge. Add `qa` to `layers_committed:`.
 
 ### 5. Layer: stats
 
 1. Run the `/save` sequence: `scripts/metric-logger.sh report`, then `make churn-report FEATURE=<feature>` if the feature is shipping.
-2. Load `obsidian-integration` and update `brain/Features/<feature>.md` (status → `shipped`, tick tasks, wikilinks, `layers_committed:` → add `stats`) plus any domain folder the feature touched (`Architecture/`, `Codebase/`, `Database/`, `APIs/`, `Decisions/`).
+2. Load `obsidian-integration` and update `brain/Features/<feature>.md` (status → `shipped`, tick tasks, wikilinks, `layers_committed:` → add `stats`) plus any domain folder **not already updated by a prior layer** (`Architecture/`, `Codebase/`, `Database/`, `APIs/`, `Decisions/`). Earlier layers update folders incrementally as they land — stats is the catch-all for anything that slipped through or for features where a layer was skipped.
 3. Commit: `chore(<feature>): stats — metrics + brain update`
 4. Run `git push-pr` — pushes the branch and opens the one PR for the feature, body auto-includes the metrics from step 1 (graphify calls, spec drift, test coverage, token drift).
 
