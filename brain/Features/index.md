@@ -17,7 +17,7 @@ One note per feature. Each note is a ticket that tracks the feature from idea to
 
 ## Index
 
-_Add a wikilink per feature as they are created._
+- [[driver-brain-update-per-layer]]
 
 ## Template
 
