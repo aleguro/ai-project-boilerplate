@@ -9,11 +9,13 @@ endif
 	bash scripts/bootstrap.sh $(PROJECT)
 
 # ── Graphify ───────────────────────────────────────────────────────────────────
-# Initialize graphify for the current project (run once per sub-project)
+# Install the graphify skill into this project + the git auto-rebuild hook (run once per sub-project)
 graphify-init:
-	bash scripts/graphify-update.sh init
+	graphify claude install
+	graphify hook install
+	bash scripts/graphify-update.sh
 
-# Update graph after code changes
+# Rebuild the graph by hand (normally not needed — the git hook does this after every commit)
 graphify-update:
 	bash scripts/graphify-update.sh
 

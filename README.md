@@ -44,7 +44,7 @@ GitHub template for new projects with the full Claude Code AI-first development 
 | [gh CLI](https://cli.github.com/) | PR creation | `brew install gh && gh auth login` |
 | Python 3 | Hook scripts, metric-logger, graphify | `brew install python` |
 | Node.js | Playwright MCP server | `brew install node` |
-| graphify-cli | Codebase knowledge graph | `pip install graphify-cli` |
+| graphify | Codebase knowledge graph | `uv tool install graphifyy` (or `pipx install graphifyy`) |
 | @playwright/mcp | Browser agents | `npm install -g @playwright/mcp` |
 | [d2](https://d2lang.com) | Optional — only to regenerate `docs/diagrams/*.svg` | `brew install d2` |
 
@@ -241,7 +241,7 @@ The artifact is published to claude.ai so you can share it with your team.
 
 **Trigger:** before touching any existing module, or when answering "what does X do / where is Y defined".
 
-Queries the codebase knowledge graph built by graphify-cli. Run before coding to understand what exists, avoid duplication, and find the right extension points.
+Queries the codebase knowledge graph built by graphify (package: `graphifyy`). Run before coding to understand what exists, avoid duplication, and find the right extension points.
 
 ```bash
 # Common queries
