@@ -55,7 +55,15 @@ else
   echo "      Then add to .claude/settings.json (see docs/superpowers/e2e/README.md)"
 fi
 
-# 7. Create brain/Metrics/ if it doesn't exist
+# 7. Verify ffmpeg (required for e2e-to-gif.sh screen recordings)
+if command -v ffmpeg &>/dev/null; then
+  echo "  [ok] ffmpeg $(ffmpeg -version 2>&1 | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1) found"
+else
+  echo "  [!] ffmpeg not found — required for E2E screen recordings"
+  echo "      Install: brew install ffmpeg"
+fi
+
+# 8. Create brain/Metrics/ if it doesn't exist
 mkdir -p "${REPO_ROOT}/brain/Metrics"
 if [ ! -f "${REPO_ROOT}/brain/Metrics/index.md" ]; then
   cat > "${REPO_ROOT}/brain/Metrics/index.md" << 'METRICS_INDEX'
