@@ -23,8 +23,8 @@ The driver is that missing coordinator. It owns the sequence, the gates between 
 | # | Layer | Does | Delegates to | Commit prefix |
 |---|-------|------|---------------|----------------|
 | 1 | **spec** | Actors, use cases, stages/tasks, graphify context | `spec-driven-development` (Steps 1–2) | `spec(<feature>):` |
-| 2 | **api** | Tasks tagged `rails`/`python` that define a contract (endpoints, schemas, jobs) | `tdd-loop` + `stacks/rails` or `stacks/python` | `feat(<feature>): api —` |
-| 3 | **app** | Tasks tagged `react` (or UI-facing rails views) that consume the contract | `tdd-loop` + `stacks/react` | `feat(<feature>): app —` |
+| 2 | **api** | Tasks tagged `rails`/`python` that define a contract (endpoints, schemas, jobs) | `tdd-loop` + `rails` or `python` | `feat(<feature>): api —` |
+| 3 | **app** | Tasks tagged `react` (or UI-facing rails views) that consume the contract | `tdd-loop` + `react` | `feat(<feature>): app —` |
 | 4 | **qa** | End-to-end coverage of the use cases | `e2e` (planner → generator → healer) | `test(<feature>): e2e —` |
 | 5 | **stats** | Metrics, brain update, PR | `churn`, `obsidian-integration`, `/save` semantics | `chore(<feature>): stats —` |
 
@@ -51,7 +51,7 @@ Before doing anything: does `brain/Features/<feature>.md` already exist? If yes,
 ### 2. Layer: api (skip if no backend-contract tasks)
 
 1. Apply the parallelization check from `spec-driven-development` (Step 4) **within this layer only**: 2+ api tasks on different stacks → parallel agents in worktrees; same stack or dependent → sequential, same session.
-2. For each task: load the matching `stacks/<stack>` skill, run `tdd-loop`, land on green.
+2. For each task: load the matching `<stack>` skill, run `tdd-loop`, land on green.
 3. Do **not** commit per task here — that's `tdd-loop`'s own concern when run standalone. Under the driver, let all api tasks land, then make **one** commit for the layer: `feat(<feature>): api — <tasks summary>`.
 4. **Gate before moving to app** — run the check in "Gates, summarized" below. On pass, add `api` to `layers_committed:`.
 

@@ -80,7 +80,7 @@ Edit `CLAUDE.md` — replace the example `apps/`, `services/` structure with you
 If your project uses Rails, React, or Python, the matching stack skill is auto-loaded when Claude works in those directories. To add a custom stack skill:
 
 ```
-.claude/skills/stacks/<your-stack>/SKILL.md
+.claude/skills/<your-stack>/SKILL.md
 ```
 
 ### 5. Initialize graphify

@@ -213,7 +213,7 @@ Agent per task:
       Stack: <rails|react|python>
 
       Steps:
-      1. Load skill stacks/<stack>
+      1. Load skill <stack>
       2. Load skill tdd-loop
       3. Run the full tdd-loop for this task
       4. Commit: feat(T1.x): <description>
@@ -226,7 +226,7 @@ Wait for all parallel agents to finish before starting the next stage.
 ### Sequential execution (same stack or dependent)
 
 1. Create branch: `git checkout -b feature/<feature>-T1.1`
-2. Load the corresponding stack skill (`stacks/rails`, `stacks/react`, `stacks/python`)
+2. Load the corresponding stack skill (`rails`, `react`, `python`)
 3. Run the TDD loop skill (`tdd-loop`)
 4. On green: `git commit -m "feat(T1.1): <description>"`
 5. Mark the task as `[x]` in the spec AND in `brain/Features/<feature>.md`
